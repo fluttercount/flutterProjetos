@@ -14,10 +14,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Motivação Diária',
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-        useMaterial3: true,
-      ),
+      theme: ThemeData(primarySwatch: Colors.purple, useMaterial3: true),
       home: const MotivationalScreen(),
     );
   }
@@ -86,74 +83,65 @@ class _MotivationalScreenState extends State<MotivationalScreen> {
     }
   }
 
-  Future<void> _getMotivationalMessage() async {
-    if (_feelingsController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, conte como você está se sentindo')),
-      );
-      return;
-    }
-
-    setState(() { 
-      _isLoading = true;
-    });
-
-    try {
-      final String apiKey = 'sua chave';
-      final String apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey';
-
-      final String userFeeling = _feelingsController.text;
-      final String prompt = '''
-        Baseado no sentimento: "$userFeeling"
-        
-        Por favor, crie uma mensagem motivacional e positiva que ajude a pessoa a enfrentar o dia com mais confiança e bem-estar. A mensagem deve ser empática, reconhecer como a pessoa está se sentindo, e oferecer perspectivas positivas e encorajamento. Mantenha a mensagem concisa (máximo 4 parágrafos) e realmente significativa. Inclua palavras de afirmação e força.
-      ''';
-
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "contents": [
-            {
-              "parts": [
-                {
-                  "text": prompt
-                }
-              ]
-            }
-          ],
-          "generationConfig": {
-            "temperature": 0.7,
-            "topK": 40,
-            "topP": 0.95,
-            "maxOutputTokens": 800,
-          }
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        final String content = jsonResponse['candidates'][0]['content']['parts'][0]['text'];
-        setState(() {
-          _motivationalMessage = content;
-        });
-      } else {
-        setState(() {
-          _motivationalMessage = 'Erro ao obter mensagem: ${response.statusCode}\n${response.body}';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _motivationalMessage = 'Erro ao conectar com a API: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+ Future<void> _getMotivationalMessage() async {
+  if (_feelingsController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor, conte como você está se sentindo')),
+    );
+    return;
   }
+
+  setState(() => _isLoading = true);
+
+  try {
+    final String apiKey = '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'; // Substitua pela sua chave
+    final String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+
+    final String userFeeling = _feelingsController.text;
+    final String prompt = '''
+Baseado no sentimento: "$userFeeling"
+
+''';
+
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+        'HTTP-Referer': 'https://seuapp.com', // Substitua com a URL do seu app ou GitHub
+      },
+      body: jsonEncode({
+        "model": "openrouter/auto",
+        "messages": [
+          {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 800
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final content = data['choices'][0]['message']['content'];
+
+      setState(() {
+        _motivationalMessage = content;
+      });
+    } else {
+      setState(() {
+        _motivationalMessage = 'Erro na resposta: ${response.statusCode}\n${response.body}';
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _motivationalMessage = 'Erro: $e';
+    });
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -204,9 +192,13 @@ class _MotivationalScreenState extends State<MotivationalScreen> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Receber Motivação', style: TextStyle(fontSize: 16)),
+              child:
+                  _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                        'Receber Motivação',
+                        style: TextStyle(fontSize: 16),
+                      ),
             ),
             const SizedBox(height: 24),
             if (_motivationalMessage.isNotEmpty) ...[
